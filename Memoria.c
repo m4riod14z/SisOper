@@ -14,7 +14,7 @@ void mostrar_direcciones() {
     static int variable_local_estatica = 20; 
     int *heap_var = (int*) malloc(sizeof(int));// Variable asignada dinámicamente en el heap
 
-    printf("\n--- Direcciones de Memoria ---\n");
+    printf("\nDirecciones de Memoria\n");
     printf("Variable global: %p\n", (void*)&variable_global);
     printf("Variable estática global: %p\n", (void*)&variable_global_estatica);
     printf("Variable local: %p\n", (void*)&variable_local);
@@ -28,13 +28,13 @@ void mostrar_direcciones() {
 void mostrar_consumo_memoria() {
     char comando[50];
     snprintf(comando, sizeof(comando), "cat /proc/%d/status | grep -E 'VmSize|VmRSS'", getpid());
-    printf("\n Estadisticas del consumo:\n");
+    printf("\nEstadisticas del consumo:\n");
     system(comando);
 }
 
 // Función para asignar y liberar memoria dinámica, y medir el consumo antes, durante y después
 void asignar_memoria_dinamica(size_t cant) {
-    printf("\n Consumo ANTES de asignar memoria:\n");
+    printf("\nConsumo ANTES de asignar memoria:\n");
     mostrar_consumo_memoria();
 
     // Reserva de memoria en heap
@@ -49,7 +49,7 @@ void asignar_memoria_dinamica(size_t cant) {
         arr[i] = i;
     }
 
-    printf("\n Consumo DESPUÉS de asignar memoria:\n");
+    printf("\nConsumo DESPUÉS de asignar memoria:\n");
     mostrar_consumo_memoria();
 
     // Liberacion de memoria
@@ -69,7 +69,7 @@ void menu() {
     size_t cant;
 
     do {
-        printf("\n--- Menú de gestión de memoria ---\n");
+        printf("\nMenú de gestión de memoria\n");
         printf("1. Imprimir direcciones de memoria\n");
         printf("2. Mostrar consumo de memoria\n");
         printf("3. Asignar y liberar memoria dinámica\n");
