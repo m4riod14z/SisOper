@@ -37,14 +37,14 @@ void asignar_memoria_dinamica(size_t cant) {
     printf("\n Consumo ANTES de asignar memoria:\n");
     mostrar_consumo_memoria();
 
-    // Reservar memoria en heap
+    // Reserva de memoria en heap
     int *arr = (int*) malloc(cant * sizeof(int));
     if (arr == NULL) {
         printf("Error al asignar memoria.\n");
         return;
     }
 
-    // Llenar arreglo con datos
+    // Arreglo de datos
     for (size_t i = 0; i < cant; i++) {
         arr[i] = i;
     }
@@ -52,7 +52,7 @@ void asignar_memoria_dinamica(size_t cant) {
     printf("\n Consumo DESPUÉS de asignar memoria:\n");
     mostrar_consumo_memoria();
 
-    // Liberar memoria
+    // Liberacion de memoria
     printf("\nPresiona ENTER para liberar la memoria...");
     getchar();
     
