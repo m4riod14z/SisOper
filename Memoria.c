@@ -28,13 +28,13 @@ void mostrar_direcciones() {
 void mostrar_consumo_memoria() {
     char comando[50];
     snprintf(comando, sizeof(comando), "cat /proc/%d/status | grep -E 'VmSize|VmRSS'", getpid());
-    printf("\n--- Estadisticas del consumo de memoria ---\n");
+    printf("\n Estadisticas del consumo:\n");
     system(comando);
 }
 
 // Función para asignar y liberar memoria dinámica, y medir el consumo antes, durante y después
 void asignar_memoria_dinamica(size_t cant) {
-    printf("\n Consumo de memoria ANTES de asignar memoria:\n");
+    printf("\n Consumo ANTES de asignar memoria:\n");
     mostrar_consumo_memoria();
 
     // Reservar memoria en heap
@@ -49,7 +49,7 @@ void asignar_memoria_dinamica(size_t cant) {
         arr[i] = i;
     }
 
-    printf("\n Consumo de memoria DESPUÉS de asignar memoria:\n");
+    printf("\n Consumo DESPUÉS de asignar memoria:\n");
     mostrar_consumo_memoria();
 
     // Liberar memoria
@@ -59,7 +59,7 @@ void asignar_memoria_dinamica(size_t cant) {
     free(arr);
     printf("\n Memoria liberada.\n");
 
-    printf("\n Consumo de memoria DESPUÉS de liberar la memoria:\n");
+    printf("\n Consumo DESPUÉS de liberar la memoria:\n");
     mostrar_consumo_memoria();
 }
 
