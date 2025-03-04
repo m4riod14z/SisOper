@@ -21,7 +21,7 @@ void mostrar_direcciones() {
     printf("Variable estática local: %p\n", (void*)&variable_local_estatica);
     printf("Variable asignada en heap: %p\n", (void*)heap_var);
 
-    free(heap_var); // Liberar memoria asignada en heap
+    free(heap_var); // Liberacion de memoria asignada en heap
 }
 
 // Función para medir el consumo de memoria usando /proc/self/status
