@@ -3,22 +3,18 @@
 
 void mostrar_menu(int memoria_liberada) {
     printf("\n--- MENÚ ---\n");
-    printf("2. Redimensionar el array\n");
-    printf("3. Liberar espacio de la memoria\n");
-    printf("4. Validar el comportamiento de memoria\n");
-    printf("5. Salir\n");
+    printf("1. Redimensionar el array\n");
+    printf("2. Liberar espacio de la memoria\n");
+    printf("3. Validar el comportamiento de memoria\n");
+    printf("4. Salir\n");
 
-    if (memoria_liberada) {
-        printf("Seleccione una opción: ");
-    } else {
-        printf("Seleccione una opción: ");
-    }
+    printf("Seleccione una opción: ");
 }
 
 int main() {
     int *array = NULL;
     int tamanio_inicial = 5, nuevo_tamanio, i;
-    int memoria_liberada = 0;  // para verificar si la memoria ha sido liberada
+    int memoria_liberada = 0;  // Para verificar si la memoria ha sido liberada
     int opcion;
 
     array = (int *)malloc(tamanio_inicial * sizeof(int));
@@ -42,7 +38,7 @@ int main() {
         scanf("%d", &opcion);
 
         switch (opcion) {
-            case 2:
+            case 1:
                 if (memoria_liberada) {
                     printf("No puedes redimensionar, la memoria ya fue liberada.\n");
                     break;
@@ -50,6 +46,15 @@ int main() {
 
                 printf("Ingresa el nuevo tamaño del array: ");
                 scanf("%d", &nuevo_tamanio);
+
+                if (nuevo_tamanio == 0) { 
+                    // Si el usuario ingresa 0, liberar la memoria y marcar como liberada
+                    free(array);
+                    array = NULL;
+                    memoria_liberada = 1;
+                    printf("Memoria liberada debido a tamaño 0.\n");
+                    break;
+                }
 
                 int *temp = (int *)realloc(array, nuevo_tamanio * sizeof(int));
                 if (temp == NULL) {
@@ -73,18 +78,19 @@ int main() {
                 printf("\n");
                 break;
 
-            case 3:
+            case 2:
                 if (memoria_liberada) {
                     printf("La memoria ya ha sido liberada.\n");
                     break;
                 }
 
                 free(array);
+                array = NULL;
                 memoria_liberada = 1;
                 printf("Memoria liberada correctamente.\n");
                 break;
 
-            case 4:
+            case 3:
                 if (memoria_liberada) {
                     printf("Validación: La memoria ha sido liberada correctamente. Saliendo del programa.\n");
                     return 0;
@@ -93,7 +99,7 @@ int main() {
                 }
                 break;
 
-            case 5:
+            case 4:
                 printf("Saliendo del programa.\n");
                 return 0;
 
