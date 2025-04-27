@@ -97,6 +97,11 @@ void cliente(int id) {
     strncpy(buffer->cola[pos].pedido, comida, PEDIDO_LEN);
     buffer->cola[pos].estado = 1; // Marcar como recibido
     
+    // Guardar una copia local del pedido y la posición para verificar después
+    char mi_pedido[PEDIDO_LEN];
+    strncpy(mi_pedido, comida, PEDIDO_LEN);
+    int mi_posicion = pos;
+    
     // Actualizar el índice tail
     buffer->tail = (buffer->tail + 1) % MAX_PEDIDOS;
     
@@ -114,14 +119,12 @@ void cliente(int id) {
     while (!preparado) {
         sem_wait(0); // Adquirir mutex para leer
         
-        // Buscar nuestro pedido en la cola
-        for (int i = 0; i < MAX_PEDIDOS; i++) {
-            if (buffer->cola[i].cliente_id == id && buffer->cola[i].estado == 2) {
-                printf("Cliente %d - ¡Pedido preparado! %s\n", id, buffer->cola[i].pedido);
-                // Marcar como atendido (opcional, podría marcarse como 0 para liberar la posición)
-                preparado = 1;
-                break;
-            }
+        // Verificar específicamente nuestro pedido por posición
+        if (buffer->cola[mi_posicion].cliente_id == id && 
+            strcmp(buffer->cola[mi_posicion].pedido, mi_pedido) == 0 && 
+            buffer->cola[mi_posicion].estado == 2) {
+            printf("Cliente %d - ¡Pedido preparado! %s\n", id, buffer->cola[mi_posicion].pedido);
+            preparado = 1;
         }
         
         sem_signal(0); // Liberar mutex
@@ -178,7 +181,7 @@ void cocina() {
         char pedido[PEDIDO_LEN];
         strncpy(pedido, buffer->cola[pos].pedido, PEDIDO_LEN);
         
-        printf("Cocina: Preparando pedido de Cliente %d: %s\n", cliente_id, pedido);
+        printf("Cocina: Preparando pedido de Cliente %d: %s (posición %d)\n", cliente_id, pedido, pos);
         
         // Actualizar el índice head
         buffer->head = (buffer->head + 1) % MAX_PEDIDOS;
@@ -192,17 +195,10 @@ void cocina() {
         // Volver a adquirir mutex para actualizar estado
         sem_wait(0);
         
-        // Marcar como preparado
-        for (int i = 0; i < MAX_PEDIDOS; i++) {
-            if (buffer->cola[i].cliente_id == cliente_id && 
-                strcmp(buffer->cola[i].pedido, pedido) == 0 && 
-                buffer->cola[i].estado == 1) {
-                buffer->cola[i].estado = 2; // Preparado
-                break;
-            }
-        }
+        // Marcar el pedido específico como preparado (por posición, no buscando en la cola)
+        buffer->cola[pos].estado = 2; // Preparado
         
-        printf("Cocina: Pedido listo para Cliente %d: %s\n", cliente_id, pedido);
+        printf("Cocina: Pedido listo para Cliente %d: %s (posición %d)\n", cliente_id, pedido, pos);
         
         // Liberar mutex
         sem_signal(0);
