@@ -1,4 +1,4 @@
-// Lab2_shm_final.c
+// Lab2_shm_final.c corregido
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,11 +81,14 @@ void cliente(int id) {
         sem_wait(0); // Entrar a sección crítica (mutex)
 
         // Registrar el pedido en el buffer
-        int mi_pos = buffer->tail; // Guardamos dónde escribimos
+        int mi_pos = buffer->tail;
         Pedido *nuevo_pedido = &buffer->cola[mi_pos];
         nuevo_pedido->cliente_id = id;
         strncpy(nuevo_pedido->pedido, comida, PEDIDO_LEN);
         nuevo_pedido->estado = 1; // Pedido recibido
+
+        // Copiar un puntero a mi propio pedido para seguirlo después
+        Pedido *mi_pedido = nuevo_pedido;
 
         printf("Cliente %d: Pedido '%s' enviado.\n", id, comida);
 
@@ -94,11 +97,11 @@ void cliente(int id) {
         sem_signal(0); // Salir de sección crítica
         sem_signal(2); // Avisar que hay un nuevo pedido
 
-        // Ahora esperar a que el pedido esté preparado
+        // Ahora esperar a que el pedido sea preparado
         printf("Cliente %d: Esperando que el pedido sea preparado...\n", id);
 
         while (1) {
-            if (buffer->cola[mi_pos].estado == 2) {
+            if (mi_pedido->estado == 2) { // Vigilar solo mi pedido
                 printf("Cliente %d: ¡Tu pedido '%s' está listo!\n", id, comida);
                 break;
             }
@@ -162,5 +165,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
-
