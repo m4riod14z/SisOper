@@ -1,4 +1,4 @@
-// Lab2_shm_final.c corregido
+// Lab2_shm_final.c corregido (ahora sí completamente)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,28 +10,23 @@
 #define MAX_PEDIDOS 5
 #define PEDIDO_LEN 64
 
-// Estructura del pedido
 typedef struct {
     int cliente_id;
     char pedido[PEDIDO_LEN];
     int estado; // 0: libre, 1: recibido, 2: preparado
 } Pedido;
 
-// Estructura completa de memoria compartida
 typedef struct {
     Pedido cola[MAX_PEDIDOS];
-    int head;  // índice del próximo pedido a atender
-    int tail;  // índice donde el cliente escribe
+    int head;
+    int tail;
 } BufferCompartido;
 
-// Llaves compartidas
 #define SHM_KEY 0x1234
 #define SEM_KEY 0x5678
 
-// Semáforos: 0 = mutex, 1 = espacio disponible, 2 = pedidos disponibles
 int sem_id;
 
-// Función de inicialización de semáforos
 void init_semaforos() {
     sem_id = semget(SEM_KEY, 3, IPC_CREAT | 0666);
     if (sem_id < 0) {
@@ -43,19 +38,16 @@ void init_semaforos() {
     semctl(sem_id, 2, SETVAL, 0);           // pedidos disponibles
 }
 
-// Operación P (wait)
 void sem_wait(int sem_num) {
     struct sembuf op = {sem_num, -1, 0};
     semop(sem_id, &op, 1);
 }
 
-// Operación V (signal)
 void sem_signal(int sem_num) {
     struct sembuf op = {sem_num, +1, 0};
     semop(sem_id, &op, 1);
 }
 
-// Cliente: escribe pedido
 void cliente(int id) {
     int shm_id = shmget(SHM_KEY, sizeof(BufferCompartido), 0666);
     if (shm_id < 0) {
@@ -70,38 +62,34 @@ void cliente(int id) {
     while (1) {
         printf("Cliente %d - Ingrese su pedido ('salir' para terminar): ", id);
         fgets(comida, PEDIDO_LEN, stdin);
-        comida[strcspn(comida, "\n")] = 0; // quitar salto de línea
+        comida[strcspn(comida, "\n")] = 0;
 
         if (strcmp(comida, "salir") == 0) {
             printf("Cliente %d desconectándose...\n", id);
             break;
         }
 
-        sem_wait(1); // Esperar espacio disponible
-        sem_wait(0); // Entrar a sección crítica (mutex)
+        sem_wait(1); // esperar espacio
+        sem_wait(0); // entrar sección crítica
 
-        // Registrar el pedido en el buffer
         int mi_pos = buffer->tail;
         Pedido *nuevo_pedido = &buffer->cola[mi_pos];
         nuevo_pedido->cliente_id = id;
         strncpy(nuevo_pedido->pedido, comida, PEDIDO_LEN);
-        nuevo_pedido->estado = 1; // Pedido recibido
-
-        // Copiar un puntero a mi propio pedido para seguirlo después
-        Pedido *mi_pedido = nuevo_pedido;
+        nuevo_pedido->estado = 1; // pedido recibido
 
         printf("Cliente %d: Pedido '%s' enviado.\n", id, comida);
 
         buffer->tail = (buffer->tail + 1) % MAX_PEDIDOS;
 
-        sem_signal(0); // Salir de sección crítica
-        sem_signal(2); // Avisar que hay un nuevo pedido
+        sem_signal(0); // salir sección crítica
+        sem_signal(2); // hay un nuevo pedido
 
-        // Ahora esperar a que el pedido sea preparado
         printf("Cliente %d: Esperando que el pedido sea preparado...\n", id);
 
+        // Aquí corregimos: vigilamos que el pedido sea del cliente correcto y esté preparado
         while (1) {
-            if (mi_pedido->estado == 2) { // Vigilar solo mi pedido
+            if (buffer->cola[mi_pos].estado == 2 && buffer->cola[mi_pos].cliente_id == id) {
                 printf("Cliente %d: ¡Tu pedido '%s' está listo!\n", id, comida);
                 break;
             }
@@ -112,7 +100,6 @@ void cliente(int id) {
     shmdt(buffer);
 }
 
-// Cocina: atiende pedidos
 void cocina() {
     int shm_id = shmget(SHM_KEY, sizeof(BufferCompartido), IPC_CREAT | 0666);
     if (shm_id < 0) {
@@ -122,34 +109,32 @@ void cocina() {
 
     BufferCompartido *buffer = (BufferCompartido *) shmat(shm_id, NULL, 0);
 
-    init_semaforos(); // Solo una vez al iniciar
+    init_semaforos();
 
     printf("Cocina lista para atender pedidos...\n");
 
     while (1) {
-        sem_wait(2); // Esperar a que haya pedidos disponibles
-        sem_wait(0); // Entrar a sección crítica (mutex)
+        sem_wait(2); // esperar pedidos
+        sem_wait(0); // entrar sección crítica
 
-        // Tomar el pedido de la cola
         Pedido *pedido = &buffer->cola[buffer->head];
 
         if (pedido->estado == 1) {
             printf("Cocina: preparando pedido de cliente %d: %s\n", pedido->cliente_id, pedido->pedido);
-            sleep(2); // Simular tiempo de preparación
-            pedido->estado = 2; // Pedido preparado
+            sleep(2); // simula cocina
+            pedido->estado = 2;
             printf("Cocina: pedido de cliente %d listo: %s\n", pedido->cliente_id, pedido->pedido);
 
             buffer->head = (buffer->head + 1) % MAX_PEDIDOS;
         }
 
-        sem_signal(0); // Salir de sección crítica
-        sem_signal(1); // Hay un espacio disponible ahora
+        sem_signal(0); // salir sección crítica
+        sem_signal(1); // espacio disponible
     }
 
     shmdt(buffer);
 }
 
-// Main
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Uso: %s [cliente ID | cocina]\n", argv[0]);
