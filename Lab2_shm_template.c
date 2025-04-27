@@ -10,58 +10,53 @@
 #define MAX_PEDIDOS 5
 #define PEDIDO_LEN 64
 
-// Estructura del pedido
 typedef struct {
     int cliente_id;
-    int pedido_id; // id único por pedido
+    int pedido_id;
     char pedido[PEDIDO_LEN];
     int estado; // 0: libre, 1: recibido, 2: preparado
 } Pedido;
 
-// Estructura completa de memoria compartida
 typedef struct {
     Pedido cola[MAX_PEDIDOS];
-    int head;  // índice de próximo pedido a atender
-    int tail;  // índice donde el cliente escribe
+    int head;
+    int tail;
+    int next_pedido_id; // nuevo: ID único para todos
 } BufferCompartido;
 
-// Llaves para memoria y semáforos
 #define SHM_KEY 0x1234
 #define SEM_KEY 0x5678
 
-// Semáforos: 0 = mutex, 1 = espacio disponible, 2 = pedidos disponibles
 int sem_id;
 
-// Inicializar semáforos
 void init_semaforos() {
     sem_id = semget(SEM_KEY, 3, IPC_CREAT | 0666);
-    semctl(sem_id, 0, SETVAL, 1);          // mutex
-    semctl(sem_id, 1, SETVAL, MAX_PEDIDOS); // espacios disponibles
-    semctl(sem_id, 2, SETVAL, 0);           // pedidos disponibles
+    semctl(sem_id, 0, SETVAL, 1);
+    semctl(sem_id, 1, SETVAL, MAX_PEDIDOS);
+    semctl(sem_id, 2, SETVAL, 0);
 }
 
-// Operación P (wait)
 void sem_wait(int sem_num) {
     struct sembuf op = {sem_num, -1, 0};
     semop(sem_id, &op, 1);
 }
 
-// Operación V (signal)
 void sem_signal(int sem_num) {
     struct sembuf op = {sem_num, +1, 0};
     semop(sem_id, &op, 1);
 }
 
-// Cliente: envía pedidos
 void cliente(int id) {
     int shm_id = shmget(SHM_KEY, sizeof(BufferCompartido), 0666);
+    if (shm_id == -1) {
+        perror("Error accediendo a la memoria compartida");
+        exit(1);
+    }
     BufferCompartido *buffer = (BufferCompartido *) shmat(shm_id, NULL, 0);
-
-    static int next_pedido_id = 1; // Contador interno para cada pedido
 
     while (1) {
         char comida[PEDIDO_LEN];
-        printf("Cliente %d - Ingrese su pedido (o 'salir' para terminar): ", id);
+        printf("Cliente %d - Ingrese su pedido (o 'salir'): ", id);
         fgets(comida, PEDIDO_LEN, stdin);
         comida[strcspn(comida, "\n")] = 0;
 
@@ -69,42 +64,43 @@ void cliente(int id) {
             break;
         }
 
-        sem_wait(1); // espera espacio disponible
-        sem_wait(0); // lock mutex
+        sem_wait(1);
+        sem_wait(0);
 
         int pos = buffer->tail;
+
         buffer->cola[pos].cliente_id = id;
-        buffer->cola[pos].pedido_id = next_pedido_id;
+        buffer->cola[pos].pedido_id = buffer->next_pedido_id++;
         strncpy(buffer->cola[pos].pedido, comida, PEDIDO_LEN);
         buffer->cola[pos].estado = 1; // recibido
 
-        int mi_pedido_id = next_pedido_id; // recordar qué pedido esperar
-        next_pedido_id++;
+        int mi_pedido_id = buffer->cola[pos].pedido_id;
 
         buffer->tail = (buffer->tail + 1) % MAX_PEDIDOS;
 
-        printf("Cliente %d - Pedido registrado: %s (Pedido ID: %d)\n", id, comida, mi_pedido_id);
+        printf("Cliente %d - Pedido enviado: %s (ID: %d)\n", id, comida, mi_pedido_id);
 
-        sem_signal(0); // unlock mutex
-        sem_signal(2); // avisar que hay un pedido nuevo
+        sem_signal(0);
+        sem_signal(2);
 
-        // Ahora esperar que mi pedido esté preparado
+        // Esperar que la cocina prepare mi pedido
         int preparado = 0;
         while (!preparado) {
-            sem_wait(0); // lock mutex
+            sem_wait(0);
             for (int i = 0; i < MAX_PEDIDOS; i++) {
                 if (buffer->cola[i].cliente_id == id &&
                     buffer->cola[i].pedido_id == mi_pedido_id &&
                     buffer->cola[i].estado == 2) {
 
                     preparado = 1;
-                    printf("Cliente %d - Pedido preparado: %s (Pedido ID: %d)\n", id, buffer->cola[i].pedido, mi_pedido_id);
-                    buffer->cola[i].estado = 0; // liberar espacio
+                    printf("Cliente %d - Pedido preparado: %s\n", id, buffer->cola[i].pedido);
+                    buffer->cola[i].estado = 0; // liberar
                 }
             }
-            sem_signal(0); // unlock mutex
+            sem_signal(0);
+
             if (!preparado) {
-                sleep(1); // esperar antes de volver a revisar
+                sleep(1);
             }
         }
     }
@@ -112,35 +108,43 @@ void cliente(int id) {
     shmdt(buffer);
 }
 
-// Cocina: atiende pedidos
 void cocina() {
     int shm_id = shmget(SHM_KEY, sizeof(BufferCompartido), IPC_CREAT | 0666);
     BufferCompartido *buffer = (BufferCompartido *) shmat(shm_id, NULL, 0);
 
-    init_semaforos(); // inicializar semáforos al inicio
+    // Inicializar la memoria compartida la primera vez
+    if (buffer->next_pedido_id == 0) {
+        for (int i = 0; i < MAX_PEDIDOS; i++) {
+            buffer->cola[i].estado = 0;
+        }
+        buffer->head = 0;
+        buffer->tail = 0;
+        buffer->next_pedido_id = 1;
+        init_semaforos();
+    }
 
-    printf("Cocina iniciada y lista para recibir pedidos...\n");
+    printf("Cocina iniciada\n");
 
     while (1) {
-        sem_wait(2); // esperar que haya pedido disponible
-        sem_wait(0); // lock mutex
+        sem_wait(2);
+        sem_wait(0);
 
         int pos = buffer->head;
         if (buffer->cola[pos].estado == 1) {
-            printf("Cocina - Preparando pedido de cliente %d: %s (Pedido ID: %d)\n",
+            printf("Cocina - Preparando pedido de cliente %d: %s (ID: %d)\n",
                 buffer->cola[pos].cliente_id, buffer->cola[pos].pedido, buffer->cola[pos].pedido_id);
 
-            sleep(2); // tiempo de preparación simulado
+            sleep(2);
 
-            buffer->cola[pos].estado = 2; // marcar como preparado
-            printf("Cocina - Pedido preparado para cliente %d: %s (Pedido ID: %d)\n",
-                buffer->cola[pos].cliente_id, buffer->cola[pos].pedido, buffer->cola[pos].pedido_id);
+            buffer->cola[pos].estado = 2; // preparado
+            printf("Cocina - Pedido listo para cliente %d: %s\n",
+                buffer->cola[pos].cliente_id, buffer->cola[pos].pedido);
 
             buffer->head = (buffer->head + 1) % MAX_PEDIDOS;
         }
 
-        sem_signal(0); // unlock mutex
-        sem_signal(1); // espacio disponible otra vez
+        sem_signal(0);
+        sem_signal(1);
     }
 
     shmdt(buffer);
