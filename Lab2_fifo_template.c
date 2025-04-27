@@ -57,6 +57,7 @@ void cocina() {
 
     // Crear los FIFOs si es necesario
     inicializar_fifos();
+    printf("Cocina iniciada. Esperando pedidos...\n");
 
     // Bucle infinito para recibir pedidos
     while (1) {
@@ -66,7 +67,7 @@ void cocina() {
         close(fd_pedidos);
 
         // Simular preparación
-        printf("Cocina está preparando el pedido del cliente %d: %s\n", p.cliente_id, p.mensaje);
+        printf("Cocina - Procesando pedido de Cliente %d: %s\n", p.cliente_id, p.mensaje);
         sleep(2); // Simula el tiempo de preparación
 
         // Enviar mensaje de confirmación a FIFO_RESPUESTAS
@@ -74,6 +75,9 @@ void cocina() {
         sprintf(p.mensaje, "Pedido del cliente %d preparado", p.cliente_id);
         write(fd_respuestas, p.mensaje, MAX_PEDIDO);
         close(fd_respuestas);
+
+        // Mensaje de que el pedido ha sido preparado
+        printf("Cocina - Pedido preparado para Cliente %d\n", p.cliente_id);
     }
 }
 
